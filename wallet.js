@@ -85,27 +85,30 @@ async function authenticateWallet() {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
 
-        // Trigger WebAuthn authentication to retrieve the credential
+        console.log("Attempting authentication with challenge:", challenge);
+
         const assertion = await navigator.credentials.get({
             publicKey: {
                 challenge: challenge,
-                userVerification: "required",
+                userVerification: "preferred",
             }
         });
 
-        console.log("Passkey authenticated successfully:", assertion);
+        if (!assertion || !assertion.rawId) {
+            throw new Error("Failed to retrieve assertion or rawId.");
+        }
 
-        // Convert rawId to a hexadecimal string
+        console.log("Assertion received:", assertion);
+
+        // Convert rawId to hexadecimal
         const rawIdHex = bufferToHex(assertion.rawId);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Use ethers.keccak256 to hash the rawIdHex
+        // Derive wallet deterministically
         const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
-
-        // Derive wallet from the hashed seed
         const wallet = new ethers.Wallet(hashedRawId);
 
-        console.log("Derived Wallet Address:", wallet.address);
+        console.log("Wallet authenticated successfully:", wallet.address);
         return wallet;
     } catch (error) {
         console.error("Error during WebAuthn authentication:", error);
@@ -113,6 +116,7 @@ async function authenticateWallet() {
         throw error;
     }
 }
+
 
 /**
  * Updates the wallet balance.
