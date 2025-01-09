@@ -40,13 +40,13 @@ async function registerPasskey() {
                 ],
                 authenticatorSelection: {
                     userVerification: "required",
-                    authenticatorAttachment: "platform" // Use device biometrics
+                    authenticatorAttachment: "cross-platform" // Use device biometrics
                 },
                 timeout: 120000, // 2 minutes
             }
         });
 
-        console.log("Credential Object:", credential);
+        console.log("Credential created:", credential);
 
         if (!credential || !credential.rawId || !credential.id) {
             throw new Error("Credential is missing required properties (rawId or id).");
@@ -55,20 +55,19 @@ async function registerPasskey() {
         console.log("Credential ID (Base64):", credential.id);
         console.log("Credential RawID:", credential.rawId);
 
-        // Convert rawId to hexadecimal
-        const rawIdHex = bufferToHex(credential.rawId);
+        // Convert rawId to hexadecimal and save for future authentication
+        const rawIdArray = new Uint8Array(credential.rawId);
+        const rawIdHex = bufferToHex(rawIdArray);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Use ethers.keccak256 to hash the rawIdHex
-        const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
+        // Save credential ID for future use
+        localStorage.setItem("credentialId", JSON.stringify(Array.from(rawIdArray)));
 
-        // Create a wallet using the hashed seed
+        // Create and return the wallet deterministically
+        const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
         const wallet = new ethers.Wallet(hashedRawId);
 
-        console.log("Passkey registered successfully!");
-        console.log("Derived Wallet Address:", wallet.address);
-
-        walletOutput.value = `Wallet created successfully!\nAddress: ${wallet.address}`;
+        console.log("Wallet Address:", wallet.address);
         return wallet;
     } catch (error) {
         console.error("Error during WebAuthn registration:", error);
@@ -76,6 +75,7 @@ async function registerPasskey() {
         throw error;
     }
 }
+
 
 /**
  * Authenticates the user with WebAuthn and derives the wallet deterministically.
