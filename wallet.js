@@ -59,11 +59,6 @@ async function registerPasskey() {
         const rawIdHex = bufferToHex(credential.rawId);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Ensure ethers.js is loaded
-        if (typeof ethers === "undefined") {
-            throw new Error("Ethers.js is not loaded. Please include it in your HTML file.");
-        }
-
         // Use ethers.keccak256 to hash the rawIdHex
         const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
 
@@ -104,11 +99,6 @@ async function authenticateWallet() {
         const rawIdHex = bufferToHex(assertion.rawId);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Ensure ethers.js is loaded
-        if (typeof ethers === "undefined") {
-            throw new Error("Ethers.js is not loaded. Please include it in your HTML file.");
-        }
-
         // Use ethers.keccak256 to hash the rawIdHex
         const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
 
@@ -124,11 +114,14 @@ async function authenticateWallet() {
     }
 }
 
+/**
+ * Updates the wallet balance.
+ */
 async function updateWalletBalance(wallet) {
     try {
-        const provider = new ethers.providers.JsonRpcProvider(GNOSIS_RPC_URL); // Fix here
+        const provider = new ethers.JsonRpcProvider(GNOSIS_RPC_URL);
         const balance = await provider.getBalance(wallet.address);
-        const formattedBalance = ethers.utils.formatEther(balance); // Fix here
+        const formattedBalance = ethers.formatEther(balance);
         walletBalanceDiv.textContent = `Balance: ${formattedBalance} xDAI`;
     } catch (error) {
         console.error("Error fetching wallet balance:", error);
@@ -167,7 +160,7 @@ sendFundsButton.addEventListener("click", async () => {
     const recipient = recipientInput.value.trim();
     const amount = parseFloat(amountInput.value);
 
-    if (!ethers.utils.isAddress(recipient)) { // Fix here
+    if (!ethers.isAddress(recipient)) {
         alert("Invalid recipient address!");
         return;
     }
@@ -179,17 +172,18 @@ sendFundsButton.addEventListener("click", async () => {
 
     try {
         const wallet = await authenticateWallet();
-        const provider = new ethers.providers.JsonRpcProvider(GNOSIS_RPC_URL);
+        const provider = new ethers.JsonRpcProvider(GNOSIS_RPC_URL);
         const walletWithProvider = wallet.connect(provider);
 
         const tx = await walletWithProvider.sendTransaction({
             to: recipient,
-            value: ethers.utils.parseEther(amount.toString())
+            value: ethers.parseEther(amount.toString())
         });
 
         transactionOutput.value = `Transaction sent!\nHash: ${tx.hash}`;
         console.log("Transaction:", tx);
 
+        // Wait for transaction confirmation
         const receipt = await tx.wait();
         transactionOutput.value += `\nTransaction confirmed in block ${receipt.blockNumber}`;
     } catch (error) {
@@ -197,3 +191,5 @@ sendFundsButton.addEventListener("click", async () => {
         alert("Failed to send funds. Check console for details.");
     }
 });
+
+    
