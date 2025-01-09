@@ -20,54 +20,55 @@ function bufferToHex(buffer) {
 /**
  * Registers a passkey using WebAuthn and derives the wallet deterministically.
  */
-async function registerPasskey() {
+async function registerPasskey(walletName) {
     try {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
 
+        // Generate a unique user ID for the wallet
+        const uniqueUserId = new Uint8Array(16);
+        window.crypto.getRandomValues(uniqueUserId);
+
         const credential = await navigator.credentials.create({
             publicKey: {
                 challenge: challenge,
-                rp: { name: "Gnosis Wallet" },
+                rp: { name: "Gnosis Wallet" }, // Ensure Relying Party is consistent
                 user: {
-                    id: new Uint8Array(16), // Random user ID
-                    name: "user@example.com",
-                    displayName: "Gnosis Wallet User"
+                    id: uniqueUserId, // Unique user ID for this wallet
+                    name: `wallet-${bufferToHex(uniqueUserId)}`, // Optional: Associate with unique name
+                    displayName: walletName || "Unnamed Wallet",
                 },
                 pubKeyCredParams: [
                     { type: "public-key", alg: -7 },    // ES256
                     { type: "public-key", alg: -257 }   // RS256
                 ],
                 authenticatorSelection: {
-                    userVerification: "required",
-                    authenticatorAttachment: "platform" // Use device biometrics
+                    residentKey: 'required', // Use discoverable credentials
+                    userVerification: 'required',
+                    authenticatorAttachment: 'platform', // Use local device biometrics
                 },
-                timeout: 120000, // 2 minutes
+                timeout: 120000,
             }
         });
 
         console.log("Credential created:", credential);
 
-        if (!credential || !credential.rawId || !credential.id) {
-            throw new Error("Credential is missing required properties (rawId or id).");
+        if (!credential || !credential.rawId) {
+            throw new Error("Credential is missing required properties (rawId).");
         }
 
         console.log("Credential ID (Base64):", credential.id);
-        console.log("Credential RawID:", credential.rawId);
 
-        // Convert rawId to hexadecimal and save for future authentication
-        const rawIdArray = new Uint8Array(credential.rawId);
-        const rawIdHex = bufferToHex(rawIdArray);
+        // Convert rawId to hexadecimal
+        const rawIdHex = bufferToHex(credential.rawId);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Save credential ID for future use
-        localStorage.setItem("credentialId", JSON.stringify(Array.from(rawIdArray)));
-
-        // Create and return the wallet deterministically
+        // Derive the wallet deterministically from the credential
         const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
         const wallet = new ethers.Wallet(hashedRawId);
 
         console.log("Wallet Address:", wallet.address);
+        walletOutput.value = `Wallet created successfully!\nAddress: ${wallet.address}`;
         return wallet;
     } catch (error) {
         console.error("Error during WebAuthn registration:", error);
@@ -75,6 +76,8 @@ async function registerPasskey() {
         throw error;
     }
 }
+
+
 
 
 /**
@@ -87,10 +90,11 @@ async function authenticateWallet() {
 
         console.log("Attempting authentication with challenge:", challenge);
 
+        // Omit `allowCredentials` to rely on discoverable credentials
         const assertion = await navigator.credentials.get({
             publicKey: {
                 challenge: challenge,
-                userVerification: "preferred",
+                userVerification: 'required', // Enforce biometric verification
             }
         });
 
@@ -104,7 +108,7 @@ async function authenticateWallet() {
         const rawIdHex = bufferToHex(assertion.rawId);
         console.log("Converted rawId (Hex):", rawIdHex);
 
-        // Derive wallet deterministically
+        // Derive the wallet deterministically from the credential
         const hashedRawId = ethers.keccak256(ethers.toUtf8Bytes(rawIdHex));
         const wallet = new ethers.Wallet(hashedRawId);
 
@@ -116,6 +120,8 @@ async function authenticateWallet() {
         throw error;
     }
 }
+
+
 
 
 /**
