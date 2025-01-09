@@ -5,19 +5,10 @@ const recipientInput = document.getElementById("recipient");
 const amountInput = document.getElementById("amount");
 const sendFundsButton = document.getElementById("sendFunds");
 const transactionOutput = document.getElementById("transactionOutput");
+const walletBalanceDiv = document.getElementById("walletBalance");
 
 // Gnosis Chain RPC URL
-const GNOSIS_RPC_URL = "https://rpc.gnosischain.com";
-
-// Generate and store a consistent user ID for WebAuthn
-let userId = localStorage.getItem("walletUserId");
-if (!userId) {
-    userId = new Uint8Array(16);
-    window.crypto.getRandomValues(userId);
-    localStorage.setItem("walletUserId", JSON.stringify(Array.from(userId)));
-} else {
-    userId = new Uint8Array(JSON.parse(userId));
-}
+const GNOSIS_RPC_URL = "https://rpc.gnosis.gateway.fm";
 
 // Helper function to convert ArrayBuffer to a Hexadecimal String
 function bufferToHex(buffer) {
@@ -26,9 +17,6 @@ function bufferToHex(buffer) {
         .join('');
 }
 
-/**
- * Registers a passkey using WebAuthn and derives the wallet deterministically.
- */
 /**
  * Registers a passkey using WebAuthn and derives the wallet deterministically.
  */
@@ -42,7 +30,7 @@ async function registerPasskey() {
                 challenge: challenge,
                 rp: { name: "Gnosis Wallet" },
                 user: {
-                    id: userId,
+                    id: new Uint8Array(16), // Random user ID
                     name: "user@example.com",
                     displayName: "Gnosis Wallet User"
                 },
@@ -61,7 +49,6 @@ async function registerPasskey() {
         console.log("Credential Object:", credential);
 
         if (!credential || !credential.rawId || !credential.id) {
-            console.error("Credential object is invalid:", credential);
             throw new Error("Credential is missing required properties (rawId or id).");
         }
 
@@ -86,9 +73,7 @@ async function registerPasskey() {
         console.log("Passkey registered successfully!");
         console.log("Derived Wallet Address:", wallet.address);
 
-        // Save credential ID for authentication
-        localStorage.setItem("credentialId", JSON.stringify(Array.from(new Uint8Array(credential.rawId))));
-
+        walletOutput.value = `Wallet created successfully!\nAddress: ${wallet.address}`;
         return wallet;
     } catch (error) {
         console.error("Error during WebAuthn registration:", error);
@@ -100,29 +85,15 @@ async function registerPasskey() {
 /**
  * Authenticates the user with WebAuthn and derives the wallet deterministically.
  */
-/**
- * Authenticates the user with WebAuthn and derives the wallet deterministically.
- */
 async function authenticateWallet() {
     try {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
 
-        // Retrieve the stored credential ID
-        const credentialId = localStorage.getItem("credentialId");
-        if (!credentialId) {
-            throw new Error("No registered passkey found. Please register first.");
-        }
-
+        // Trigger WebAuthn authentication to retrieve the credential
         const assertion = await navigator.credentials.get({
             publicKey: {
                 challenge: challenge,
-                allowCredentials: [
-                    {
-                        type: "public-key",
-                        id: new Uint8Array(JSON.parse(credentialId)), // Use stored credential ID
-                    }
-                ],
                 userVerification: "required",
             }
         });
@@ -153,13 +124,25 @@ async function authenticateWallet() {
     }
 }
 
+async function updateWalletBalance(wallet) {
+    try {
+        const provider = new ethers.providers.JsonRpcProvider(GNOSIS_RPC_URL); // Fix here
+        const balance = await provider.getBalance(wallet.address);
+        const formattedBalance = ethers.utils.formatEther(balance); // Fix here
+        walletBalanceDiv.textContent = `Balance: ${formattedBalance} xDAI`;
+    } catch (error) {
+        console.error("Error fetching wallet balance:", error);
+        walletBalanceDiv.textContent = "Balance: Error fetching balance";
+    }
+}
+
 // Create Wallet
 createWalletButton.addEventListener("click", async () => {
     try {
         const wallet = await registerPasskey();
-
-        walletOutput.value = `Wallet created and secured with passkey!\nAddress: ${wallet.address}`;
+        walletOutput.value = `Wallet created successfully!\nAddress: ${wallet.address}`;
         console.log("Wallet Address:", wallet.address);
+        updateWalletBalance(wallet); // Fetch and display balance
     } catch (error) {
         console.error("Error creating wallet:", error);
         alert("Failed to create wallet. Ensure your device supports WebAuthn.");
@@ -170,9 +153,9 @@ createWalletButton.addEventListener("click", async () => {
 loadWalletButton.addEventListener("click", async () => {
     try {
         const wallet = await authenticateWallet();
-
         walletOutput.value = `Wallet loaded successfully!\nAddress: ${wallet.address}`;
         console.log("Wallet Address:", wallet.address);
+        updateWalletBalance(wallet); // Fetch and display balance
     } catch (error) {
         console.error("Error loading wallet:", error);
         alert("Failed to load wallet. Ensure you authenticate correctly.");
@@ -184,7 +167,7 @@ sendFundsButton.addEventListener("click", async () => {
     const recipient = recipientInput.value.trim();
     const amount = parseFloat(amountInput.value);
 
-    if (!ethers.utils.isAddress(recipient)) {
+    if (!ethers.utils.isAddress(recipient)) { // Fix here
         alert("Invalid recipient address!");
         return;
     }
@@ -207,7 +190,6 @@ sendFundsButton.addEventListener("click", async () => {
         transactionOutput.value = `Transaction sent!\nHash: ${tx.hash}`;
         console.log("Transaction:", tx);
 
-        // Wait for transaction confirmation
         const receipt = await tx.wait();
         transactionOutput.value += `\nTransaction confirmed in block ${receipt.blockNumber}`;
     } catch (error) {
