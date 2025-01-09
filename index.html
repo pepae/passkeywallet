@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biometric Ethereum Wallet</title>
+</head>
+<body>
+    <h1>Ethereum Wallet with Biometric Passkey</h1>
+    <div>
+        <button id="createWallet">Create Wallet</button>
+        <button id="loadWallet">Load Wallet</button>
+    </div>
+    <textarea id="walletOutput" rows="6" cols="50" placeholder="Your wallet details will appear here"></textarea>
+
+    <h2>Send Funds</h2>
+    <div>
+        <input type="text" id="recipient" placeholder="Recipient Address">
+        <input type="number" id="amount" placeholder="Amount in xDAI">
+        <button id="sendFunds">Send Funds</button>
+    </div>
+    <textarea id="transactionOutput" rows="4" cols="50" placeholder="Transaction details will appear here"></textarea>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.umd.min.js"></script>
+
+    <script src="wallet.js"></script>
+</body>
+</html>
