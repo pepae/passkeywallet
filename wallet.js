@@ -40,7 +40,7 @@ async function registerPasskey() {
                 ],
                 authenticatorSelection: {
                     userVerification: "required",
-                    authenticatorAttachment: "cross-platform" // Use device biometrics
+                    authenticatorAttachment: "platform" // Use device biometrics
                 },
                 timeout: 120000, // 2 minutes
             }
